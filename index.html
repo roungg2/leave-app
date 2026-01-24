@@ -1,202 +1,269 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>연차 관리</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<style>
-body {
-  margin: 0;
-  padding: 16px;
-  background: #f2f2f7;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-}
+  <!-- iOS 홈화면 앱 설정 -->
+  <link rel="apple-touch-icon" href="icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="연차관리">
+  <meta name="theme-color" content="#f2f2f7">
 
-.app { max-width: 420px; margin: auto; }
+  <title>연차 관리</title>
 
-.card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
+  <style>
+    body {
+      margin: 0;
+      background: #f2f2f7;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+    }
 
-h2 { margin: 0 0 12px; font-size: 18px; }
+    .app {
+      width: 100%;
+      max-width: 420px;
+    }
 
-.total { margin-bottom: 18px; }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
 
-.progress {
-  height: 18px;
-  background: #e5e5ea;
-  border-radius: 9px;
-  overflow: hidden;
-}
+    h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
 
-.bar { height: 100%; transition: width .3s; }
-.required { background:#007aff; }
-.cash { background:#34c759; }
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
 
-.buttons button {
-  width: 100%;
-  padding: 14px;
-  margin-bottom: 10px;
-  font-size: 16px;
-  border-radius: 12px;
-  border: none;
-  background: #007aff;
-  color: #fff;
-}
+    button {
+      padding: 14px;
+      font-size: 15px;
+      border: none;
+      border-radius: 12px;
+      background: #007aff;
+      color: #fff;
+      font-weight: 600;
+    }
 
-.buttons button:disabled { background:#c7c7cc; }
+    button:disabled {
+      background: #c7c7cc;
+    }
 
-select {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 12px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-}
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
 
-.record {
-  display: flex;
-  flex-direction: column;
-  border-bottom: 1px solid #eee;
-  padding: 10px 0;
-  font-size: 14px;
-}
+    .bar-wrap {
+      background: #e5e5ea;
+      border-radius: 10px;
+      overflow: hidden;
+      height: 16px;
+      margin-bottom: 12px;
+    }
 
-.record-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+    .bar {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
 
-.record-actions {
-  margin-top: 6px;
-  display: flex;
-  gap: 8px;
-}
+    .bar.mandatory {
+      background: #007aff;
+    }
 
-.record-actions button {
-  font-size: 13px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: none;
-  background: #efeff4;
-}
+    .bar.cash {
+      background: #34c759;
+    }
 
-.delete { color:#ff3b30; }
-</style>
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+
+    li input[type="date"] {
+      border: none;
+      background: transparent;
+      font-size: 14px;
+    }
+
+    .delete {
+      color: #ff3b30;
+      font-size: 13px;
+      margin-left: 8px;
+    }
+
+    select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      margin-bottom: 12px;
+    }
+  </style>
 </head>
 
 <body>
-<div class="app">
+  <div class="app">
 
-<div class="card">
-  <h2>연차 사용 현황</h2>
-  <div class="total" id="totalUsed"></div>
+    <div class="card">
+      <h2>연차 사용</h2>
+      <div class="buttons">
+        <button onclick="useLeave(8)">연차 8시간</button>
+        <button onclick="useLeave(7)">연차 7시간</button>
+        <button onclick="useLeave(4)">반차 4시간</button>
+        <button onclick="useLeave(2)">1/4차 2시간</button>
+      </div>
+    </div>
 
-  <div>필수 소진 남음: <span id="requiredRemain"></span></div>
-  <div class="progress"><div class="bar required" id="requiredBar"></div></div>
+    <div class="card">
+      <h2>연차 사용 현황</h2>
 
-  <div style="margin-top:12px;">정산 가능 남음: <span id="cashRemain"></span></div>
-  <div class="progress"><div class="bar cash" id="cashBar"></div></div>
-</div>
+      <div class="summary">
+        <span>총 사용시간</span>
+        <span id="used">0h</span>
+      </div>
 
-<div class="card buttons">
-  <button onclick="addLeave(8)">연차 8시간</button>
-  <button onclick="addLeave(7)">연차 7시간</button>
-  <button onclick="addLeave(4)">반차 4시간</button>
-  <button onclick="addLeave(2)">1/4차 2시간</button>
-</div>
+      <div class="summary">
+        <span>필수 소진 (86h)</span>
+        <span id="mandatoryLeft">86h</span>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar mandatory" id="mandatoryBar"></div>
+      </div>
 
-<div class="card">
-  <h2>사용 기록</h2>
-  <select id="monthFilter" onchange="render()"></select>
-  <div id="records"></div>
-</div>
+      <div class="summary">
+        <span>정산 가능 (42h)</span>
+        <span id="cashLeft">42h</span>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar cash" id="cashBar"></div>
+      </div>
+    </div>
 
-</div>
+    <div class="card">
+      <h2>사용 기록</h2>
 
-<script>
-const REQUIRED_TOTAL = 86;
-const CASH_TOTAL = 42;
-const TOTAL_LIMIT = 128;
+      <select id="monthFilter" onchange="renderHistory()">
+        <option value="all">전체 보기</option>
+      </select>
 
-let state = JSON.parse(localStorage.getItem("leaveState")) || { records: [] };
+      <ul id="history"></ul>
+    </div>
 
-function today() {
-  return new Date().toISOString().split("T")[0];
-}
+  </div>
 
-function totalUsed() {
-  return state.records.reduce((s,r)=>s+r.hours,0);
-}
+  <script>
+    const TOTAL = 128;
+    const MANDATORY = 86;
+    const CASH = 42;
 
-function addLeave(hours) {
-  if (totalUsed()+hours > TOTAL_LIMIT) {
-    alert("모든 연차(128시간)를 이미 소진했습니다.");
-    return;
-  }
-  state.records.push({ date: today(), hours });
-  save(); render();
-}
+    let records = JSON.parse(localStorage.getItem("leaveRecords") || "[]");
 
-function save() {
-  localStorage.setItem("leaveState", JSON.stringify(state));
-}
+    function today() {
+      return new Date().toISOString().slice(0,10);
+    }
 
-function render() {
-  const used = totalUsed();
-  document.getElementById("totalUsed").textContent = `총 사용: ${used}시간`;
+    function save() {
+      localStorage.setItem("leaveRecords", JSON.stringify(records));
+      render();
+    }
 
-  const reqRemain = Math.max(0, REQUIRED_TOTAL - Math.min(used, REQUIRED_TOTAL));
-  const cashRemain = Math.max(0, CASH_TOTAL - Math.max(0, used - REQUIRED_TOTAL));
+    function usedHours() {
+      return records.reduce((a,b)=>a+b.hours,0);
+    }
 
-  document.getElementById("requiredRemain").textContent = reqRemain;
-  document.getElementById("cashRemain").textContent = cashRemain;
+    function useLeave(hours) {
+      if (usedHours() + hours > TOTAL) {
+        alert("모든 연차가 소진되었습니다.");
+        return;
+      }
+      records.push({ date: today(), hours });
+      save();
+    }
 
-  document.getElementById("requiredBar").style.width = `${reqRemain/REQUIRED_TOTAL*100}%`;
-  document.getElementById("cashBar").style.width = `${cashRemain/CASH_TOTAL*100}%`;
+    function deleteRecord(i) {
+      records.splice(i,1);
+      save();
+    }
 
-  document.querySelectorAll(".buttons button")
-    .forEach(b=>b.disabled = used>=TOTAL_LIMIT);
+    function changeDate(i, value) {
+      records[i].date = value;
+      save();
+    }
 
-  // 월 필터
-  const months = [...new Set(state.records.map(r=>r.date.slice(0,7)))].sort();
-  const filter = document.getElementById("monthFilter");
-  if (!filter.options.length) {
-    filter.innerHTML = `<option value="">전체</option>` +
-      months.map(m=>`<option value="${m}">${m}</option>`).join("");
-  }
+    function render() {
+      const used = usedHours();
+      document.getElementById("used").textContent = used + "h";
 
-  const selected = filter.value;
-  const list = document.getElementById("records");
-  list.innerHTML = "";
+      const mandatoryLeft = Math.max(0, MANDATORY - used);
+      const cashLeft = Math.max(0, CASH - Math.max(0, used - MANDATORY));
 
-  state.records
-    .map((r,i)=>({...r,i}))
-    .filter(r=>!selected || r.date.startsWith(selected))
-    .sort((a,b)=>b.date.localeCompare(a.date))
-    .forEach(r=>{
-      const div = document.createElement("div");
-      div.className="record";
-      div.innerHTML = `
-        <div class="record-top">
-          <span>${r.date} · ${r.hours}h</span>
-        </div>
-        <div class="record-actions">
-          <input type="date" value="${r.date}" onchange="state.records[${r.i}].date=this.value;save();render();">
-          <button class="delete" onclick="state.records.splice(${r.i},1);save();render();">삭제</button>
-        </div>
-      `;
-      list.appendChild(div);
-    });
-}
+      document.getElementById("mandatoryLeft").textContent = mandatoryLeft + "h";
+      document.getElementById("cashLeft").textContent = cashLeft + "h";
 
-render();
-</script>
+      document.getElementById("mandatoryBar").style.width = (mandatoryLeft / MANDATORY * 100) + "%";
+      document.getElementById("cashBar").style.width = (cashLeft / CASH * 100) + "%";
+
+      renderHistory();
+      renderMonths();
+    }
+
+    function renderMonths() {
+      const select = document.getElementById("monthFilter");
+      const months = [...new Set(records.map(r => r.date.slice(0,7)))];
+      select.innerHTML = '<option value="all">전체 보기</option>';
+      months.forEach(m => {
+        const o = document.createElement("option");
+        o.value = m;
+        o.textContent = m;
+        select.appendChild(o);
+      });
+    }
+
+    function renderHistory() {
+      const ul = document.getElementById("history");
+      const filter = document.getElementById("monthFilter").value;
+      ul.innerHTML = "";
+
+      records.forEach((r,i) => {
+        if (filter !== "all" && !r.date.startsWith(filter)) return;
+
+        const li = document.createElement("li");
+
+        li.innerHTML = `
+          <input type="date" value="${r.date}" onchange="changeDate(${i}, this.value)">
+          <span>${r.hours}h</span>
+          <span class="delete" onclick="deleteRecord(${i})">삭제</span>
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    render();
+  </script>
 </body>
 </html>
