@@ -34,17 +34,15 @@ h2 {
 .total {
   font-size: 15px;
   margin-bottom: 18px;
-  color: #333;
 }
 
 .section {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .label {
   font-size: 14px;
   margin-bottom: 6px;
-  color: #555;
 }
 
 .progress {
@@ -59,13 +57,8 @@ h2 {
   transition: width 0.3s ease;
 }
 
-.bar.required {
-  background: #007aff;
-}
-
-.bar.cash {
-  background: #34c759;
-}
+.bar.required { background: #007aff; }
+.bar.cash { background: #34c759; }
 
 .buttons button {
   width: 100%;
@@ -78,8 +71,8 @@ h2 {
   color: #fff;
 }
 
-.buttons button:active {
-  opacity: 0.7;
+.buttons button:disabled {
+  background: #c7c7cc;
 }
 
 ul {
@@ -96,13 +89,14 @@ li {
   font-size: 14px;
 }
 
-li span {
-  cursor: pointer;
+.month {
+  margin-top: 12px;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .delete {
   color: #ff3b30;
-  margin-left: 8px;
 }
 </style>
 </head>
@@ -110,113 +104,129 @@ li span {
 <body>
 <div class="app">
 
-  <div class="card">
-    <h2>연차 사용 현황</h2>
-    <div class="total" id="totalUsed">총 사용: 0시간</div>
+<div class="card">
+  <h2>연차 사용 현황</h2>
+  <div class="total" id="totalUsed"></div>
 
-    <div class="section">
-      <div class="label" id="requiredLabel">필수 소진 남음: 86시간</div>
-      <div class="progress">
-        <div class="bar required" id="requiredBar"></div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="label" id="cashLabel">정산 가능 남음: 42시간</div>
-      <div class="progress">
-        <div class="bar cash" id="cashBar"></div>
-      </div>
-    </div>
+  <div class="section">
+    <div class="label" id="requiredLabel"></div>
+    <div class="progress"><div class="bar required" id="requiredBar"></div></div>
   </div>
 
-  <div class="card buttons">
-    <button onclick="addLeave(8)">연차 8시간</button>
-    <button onclick="addLeave(7)">연차 7시간</button>
-    <button onclick="addLeave(4)">반차 4시간</button>
-    <button onclick="addLeave(2)">1/4차 2시간</button>
+  <div class="section">
+    <div class="label" id="cashLabel"></div>
+    <div class="progress"><div class="bar cash" id="cashBar"></div></div>
   </div>
+</div>
 
-  <div class="card">
-    <h2>사용 기록</h2>
-    <ul id="records"></ul>
-  </div>
+<div class="card buttons">
+  <button onclick="addLeave(8)">연차 8시간</button>
+  <button onclick="addLeave(7)">연차 7시간</button>
+  <button onclick="addLeave(4)">반차 4시간</button>
+  <button onclick="addLeave(2)">1/4차 2시간</button>
+</div>
+
+<div class="card">
+  <h2>사용 기록</h2>
+  <ul id="records"></ul>
+</div>
 
 </div>
+
+<!-- iOS 대응용 hidden date input -->
+<input type="date" id="datePicker" style="position:absolute;opacity:0;pointer-events:none;">
 
 <script>
 const REQUIRED_TOTAL = 86;
 const CASH_TOTAL = 42;
+const TOTAL_LIMIT = 128;
 
-let state = JSON.parse(localStorage.getItem("leaveState")) || {
-  records: []
+let state = JSON.parse(localStorage.getItem("leaveState")) || { records: [] };
+let editingIndex = null;
+
+const datePicker = document.getElementById("datePicker");
+datePicker.onchange = () => {
+  if (editingIndex !== null) {
+    state.records[editingIndex].date = datePicker.value;
+    save(); render();
+    editingIndex = null;
+  }
 };
 
 function today() {
   return new Date().toISOString().split("T")[0];
 }
 
+function totalUsed() {
+  return state.records.reduce((s, r) => s + r.hours, 0);
+}
+
 function addLeave(hours) {
+  if (totalUsed() + hours > TOTAL_LIMIT) {
+    alert("모든 연차(128시간)를 이미 소진했습니다.");
+    return;
+  }
   state.records.push({ date: today(), hours });
-  save();
-  render();
+  save(); render();
+}
+
+function editDate(index) {
+  editingIndex = index;
+  datePicker.value = state.records[index].date;
+  datePicker.click();
+}
+
+function removeRecord(index) {
+  state.records.splice(index, 1);
+  save(); render();
 }
 
 function save() {
   localStorage.setItem("leaveState", JSON.stringify(state));
 }
 
-function removeRecord(index) {
-  state.records.splice(index, 1);
-  save();
-  render();
-}
-
-function editDate(index) {
-  const input = document.createElement("input");
-  input.type = "date";
-  input.value = state.records[index].date;
-  input.onchange = () => {
-    state.records[index].date = input.value;
-    save();
-    render();
-  };
-  input.click();
-}
-
 function render() {
-  const totalUsed = state.records.reduce((s, r) => s + r.hours, 0);
-  document.getElementById("totalUsed").textContent = `총 사용: ${totalUsed}시간`;
+  const used = totalUsed();
+  document.getElementById("totalUsed").textContent = `총 사용: ${used}시간`;
 
-  const requiredUsed = Math.min(totalUsed, REQUIRED_TOTAL);
-  const requiredRemain = Math.max(0, REQUIRED_TOTAL - requiredUsed);
+  const requiredRemain = Math.max(0, REQUIRED_TOTAL - Math.min(used, REQUIRED_TOTAL));
+  const cashRemain = Math.max(0, CASH_TOTAL - Math.max(0, used - REQUIRED_TOTAL));
 
-  const cashUsed = Math.max(0, totalUsed - REQUIRED_TOTAL);
-  const cashRemain = Math.max(0, CASH_TOTAL - cashUsed);
+  document.getElementById("requiredLabel").textContent = `필수 소진 남음: ${requiredRemain}시간`;
+  document.getElementById("cashLabel").textContent = `정산 가능 남음: ${cashRemain}시간`;
 
-  document.getElementById("requiredLabel").textContent =
-    `필수 소진 남음: ${requiredRemain}시간`;
-  document.getElementById("cashLabel").textContent =
-    `정산 가능 남음: ${cashRemain}시간`;
+  document.getElementById("requiredBar").style.width = `${(requiredRemain / REQUIRED_TOTAL) * 100}%`;
+  document.getElementById("cashBar").style.width = `${(cashRemain / CASH_TOTAL) * 100}%`;
 
-  document.getElementById("requiredBar").style.width =
-    `${(requiredRemain / REQUIRED_TOTAL) * 100}%`;
-  document.getElementById("cashBar").style.width =
-    `${(cashRemain / CASH_TOTAL) * 100}%`;
+  document.querySelectorAll(".buttons button")
+    .forEach(btn => btn.disabled = used >= TOTAL_LIMIT);
 
   const ul = document.getElementById("records");
   ul.innerHTML = "";
 
-  const sorted = state.records
-    .map((r, i) => ({ ...r, index: i }))
-    .sort((a, b) => b.date.localeCompare(a.date));
+  const grouped = {};
+  state.records.forEach((r, i) => {
+    const month = r.date.slice(0,7);
+    if (!grouped[month]) grouped[month] = [];
+    grouped[month].push({ ...r, index: i });
+  });
 
-  sorted.forEach(r => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <span onclick="editDate(${r.index})">${r.date} · ${r.hours}h</span>
-      <span class="delete" onclick="removeRecord(${r.index})">삭제</span>
-    `;
-    ul.appendChild(li);
+  Object.keys(grouped).sort().reverse().forEach(month => {
+    const m = document.createElement("div");
+    m.className = "month";
+    m.textContent = month;
+    ul.appendChild(m);
+
+    grouped[month]
+      .sort((a,b) => b.date.localeCompare(a.date))
+      .forEach(r => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <span onclick="editDate(${r.index})">${r.date} · ${r.hours}h</span>
+          <span class="delete" onclick="removeRecord(${r.index})">삭제</span>
+        `;
+        ul.appendChild(li);
+      });
   });
 }
 
