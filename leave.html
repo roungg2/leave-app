@@ -27,27 +27,36 @@ body {
 }
 
 h2 {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   font-size: 18px;
 }
 
 .total {
   font-size: 15px;
-  margin-bottom: 12px;
+  margin-bottom: 18px;
   color: #333;
 }
 
-.progress {
-  height: 12px;
-  background: #e5e5ea;
-  border-radius: 6px;
-  overflow: hidden;
+.section {
+  margin-bottom: 18px;
+}
+
+.label {
+  font-size: 14px;
   margin-bottom: 6px;
+  color: #555;
+}
+
+.progress {
+  height: 18px;
+  background: #e5e5ea;
+  border-radius: 9px;
+  overflow: hidden;
 }
 
 .bar {
   height: 100%;
-  width: 0%;
+  transition: width 0.3s ease;
 }
 
 .bar.required {
@@ -56,12 +65,6 @@ h2 {
 
 .bar.cash {
   background: #34c759;
-}
-
-.label {
-  font-size: 13px;
-  margin-bottom: 10px;
-  color: #555;
 }
 
 .buttons button {
@@ -111,14 +114,18 @@ li span {
     <h2>연차 사용 현황</h2>
     <div class="total" id="totalUsed">총 사용: 0시간</div>
 
-    <div class="label">필수 소진 (86h)</div>
-    <div class="progress">
-      <div class="bar required" id="requiredBar"></div>
+    <div class="section">
+      <div class="label" id="requiredLabel">필수 소진 남음: 86시간</div>
+      <div class="progress">
+        <div class="bar required" id="requiredBar"></div>
+      </div>
     </div>
 
-    <div class="label">정산 가능 (42h)</div>
-    <div class="progress">
-      <div class="bar cash" id="cashBar"></div>
+    <div class="section">
+      <div class="label" id="cashLabel">정산 가능 남음: 42시간</div>
+      <div class="progress">
+        <div class="bar cash" id="cashBar"></div>
+      </div>
     </div>
   </div>
 
@@ -178,32 +185,39 @@ function editDate(index) {
 
 function render() {
   const totalUsed = state.records.reduce((s, r) => s + r.hours, 0);
-
-  document.getElementById("totalUsed").textContent =
-    `총 사용: ${totalUsed}시간`;
+  document.getElementById("totalUsed").textContent = `총 사용: ${totalUsed}시간`;
 
   const requiredUsed = Math.min(totalUsed, REQUIRED_TOTAL);
+  const requiredRemain = Math.max(0, REQUIRED_TOTAL - requiredUsed);
+
   const cashUsed = Math.max(0, totalUsed - REQUIRED_TOTAL);
+  const cashRemain = Math.max(0, CASH_TOTAL - cashUsed);
+
+  document.getElementById("requiredLabel").textContent =
+    `필수 소진 남음: ${requiredRemain}시간`;
+  document.getElementById("cashLabel").textContent =
+    `정산 가능 남음: ${cashRemain}시간`;
 
   document.getElementById("requiredBar").style.width =
-    `${(requiredUsed / REQUIRED_TOTAL) * 100}%`;
-
+    `${(requiredRemain / REQUIRED_TOTAL) * 100}%`;
   document.getElementById("cashBar").style.width =
-    `${(cashUsed / CASH_TOTAL) * 100}%`;
+    `${(cashRemain / CASH_TOTAL) * 100}%`;
 
   const ul = document.getElementById("records");
   ul.innerHTML = "";
 
-  state.records
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .forEach((r, i) => {
-      const li = document.createElement("li");
-      li.innerHTML = `
-        <span onclick="editDate(${i})">${r.date} · ${r.hours}h</span>
-        <span class="delete" onclick="removeRecord(${i})">삭제</span>
-      `;
-      ul.appendChild(li);
-    });
+  const sorted = state.records
+    .map((r, i) => ({ ...r, index: i }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  sorted.forEach(r => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <span onclick="editDate(${r.index})">${r.date} · ${r.hours}h</span>
+      <span class="delete" onclick="removeRecord(${r.index})">삭제</span>
+    `;
+    ul.appendChild(li);
+  });
 }
 
 render();
