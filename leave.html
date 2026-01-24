@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>연차 관리</title>
+
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f2f2f7;
+  margin: 0;
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+}
+.app {
+  width: 100%;
+  max-width: 420px;
+}
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 14px;
+  background: #007aff;
+  color: white;
+  font-size: 16px;
+}
+button:active { transform: scale(0.97); }
+
+li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+.danger { color: #ff3b30; cursor: pointer; }
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.modal-inner {
+  background: white;
+  padding: 16px;
+  border-radius: 16px;
+  width: 90%;
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+  <h2 style="text-align:center">연차 관리</h2>
+
+  <div class="card">
+    남은 연차: <b><span id="remain">128</span>h</b><br><br>
+    필수 소진: <span id="mandatory">86</span>h<br>
+    정산 가능: <span id="cashable">42</span>h
+  </div>
+
+  <div class="card">
+    <button onclick="openModal(8)">연차 8시간</button>
+    <button onclick="openModal(7)">연차 7시간</button>
+    <button onclick="openModal(4)">반차 4시간</button>
+    <button onclick="openModal(2)">1/4차 2시간</button>
+  </div>
+
+  <div class="card">
+    <h4>사용 기록</h4>
+    <ul id="records"></ul>
+  </div>
+</div>
+
+<!-- 날짜 선택 모달 -->
+<div class="modal" id="modal">
+  <div class="modal-inner">
+    <input type="date" id="dateInput" style="width:100%;padding:12px">
+    <button onclick="confirmAdd()">확인</button>
+  </div>
+</div>
+
+<script>
+const TOTAL = 128;
+const MANDATORY = 86;
+const CASHABLE = 42;
+
+let selectedHours = 0;
+
+let state = JSON.parse(localStorage.getItem("leave")) || { records: [] };
+
+function save() {
+  localStorage.setItem("leave", JSON.stringify(state));
+}
+
+function openModal(hours) {
+  selectedHours = hours;
+  document.getElementById("modal").style.display = "flex";
+}
+
+function confirmAdd() {
+  const date = document.getElementById("dateInput").value;
+  if (!date) return alert("날짜를 선택해 주세요");
+
+  state.records.push({ date, hours: selectedHours });
+  document.getElementById("modal").style.display = "none";
+  document.getElementById("dateInput").value = "";
+  save();
+  render();
+}
+
+function removeRecord(i) {
+  state.records.splice(i, 1);
+  save();
+  render();
+}
+
+function render() {
+  const used = state.records.reduce((s,r)=>s+r.hours,0);
+  document.getElementById("remain").innerText = TOTAL - used;
+  document.getElementById("mandatory").innerText = Math.max(0, MANDATORY - used);
+  document.getElementById("cashable").innerText = Math.max(0, CASHABLE - Math.max(0, used - MANDATORY));
+
+  const ul = document.getElementById("records");
+  ul.innerHTML = "";
+  state.records.forEach((r,i)=>{
+    const li = document.createElement("li");
+    li.innerHTML = `${r.date} · ${r.hours}h <span class="danger" onclick="removeRecord(${i})">삭제</span>`;
+    ul.appendChild(li);
+  });
+}
+
+render();
+</script>
+</body>
+</html>
