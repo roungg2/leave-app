@@ -1,144 +1,209 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>연차 관리</title>
 
 <style>
 body {
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #f2f2f7;
   margin: 0;
   padding: 16px;
-  display: flex;
-  justify-content: center;
+  background: #f2f2f7;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
+
 .app {
-  width: 100%;
   max-width: 420px;
+  margin: auto;
 }
+
 .card {
   background: #fff;
   border-radius: 16px;
   padding: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
-button {
+
+h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.total {
+  font-size: 15px;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.progress {
+  height: 12px;
+  background: #e5e5ea;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.bar {
+  height: 100%;
+  width: 0%;
+}
+
+.bar.required {
+  background: #007aff;
+}
+
+.bar.cash {
+  background: #34c759;
+}
+
+.label {
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: #555;
+}
+
+.buttons button {
   width: 100%;
   padding: 14px;
-  margin-top: 8px;
-  border: none;
-  border-radius: 14px;
-  background: #007aff;
-  color: white;
+  margin-bottom: 10px;
   font-size: 16px;
+  border-radius: 12px;
+  border: none;
+  background: #007aff;
+  color: #fff;
 }
-button:active { transform: scale(0.97); }
+
+.buttons button:active {
+  opacity: 0.7;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
 
 li {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
+  padding: 12px 0;
   border-bottom: 1px solid #eee;
+  font-size: 14px;
 }
-.danger { color: #ff3b30; cursor: pointer; }
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  display: none;
-  align-items: center;
-  justify-content: center;
+
+li span {
+  cursor: pointer;
 }
-.modal-inner {
-  background: white;
-  padding: 16px;
-  border-radius: 16px;
-  width: 90%;
+
+.delete {
+  color: #ff3b30;
+  margin-left: 8px;
 }
 </style>
 </head>
 
 <body>
 <div class="app">
-  <h2 style="text-align:center">연차 관리</h2>
 
   <div class="card">
-    남은 연차: <b><span id="remain">128</span>h</b><br><br>
-    필수 소진: <span id="mandatory">86</span>h<br>
-    정산 가능: <span id="cashable">42</span>h
+    <h2>연차 사용 현황</h2>
+    <div class="total" id="totalUsed">총 사용: 0시간</div>
+
+    <div class="label">필수 소진 (86h)</div>
+    <div class="progress">
+      <div class="bar required" id="requiredBar"></div>
+    </div>
+
+    <div class="label">정산 가능 (42h)</div>
+    <div class="progress">
+      <div class="bar cash" id="cashBar"></div>
+    </div>
+  </div>
+
+  <div class="card buttons">
+    <button onclick="addLeave(8)">연차 8시간</button>
+    <button onclick="addLeave(7)">연차 7시간</button>
+    <button onclick="addLeave(4)">반차 4시간</button>
+    <button onclick="addLeave(2)">1/4차 2시간</button>
   </div>
 
   <div class="card">
-    <button onclick="openModal(8)">연차 8시간</button>
-    <button onclick="openModal(7)">연차 7시간</button>
-    <button onclick="openModal(4)">반차 4시간</button>
-    <button onclick="openModal(2)">1/4차 2시간</button>
-  </div>
-
-  <div class="card">
-    <h4>사용 기록</h4>
+    <h2>사용 기록</h2>
     <ul id="records"></ul>
   </div>
-</div>
 
-<!-- 날짜 선택 모달 -->
-<div class="modal" id="modal">
-  <div class="modal-inner">
-    <input type="date" id="dateInput" style="width:100%;padding:12px">
-    <button onclick="confirmAdd()">확인</button>
-  </div>
 </div>
 
 <script>
-const TOTAL = 128;
-const MANDATORY = 86;
-const CASHABLE = 42;
+const REQUIRED_TOTAL = 86;
+const CASH_TOTAL = 42;
 
-let selectedHours = 0;
+let state = JSON.parse(localStorage.getItem("leaveState")) || {
+  records: []
+};
 
-let state = JSON.parse(localStorage.getItem("leave")) || { records: [] };
+function today() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function addLeave(hours) {
+  state.records.push({ date: today(), hours });
+  save();
+  render();
+}
 
 function save() {
-  localStorage.setItem("leave", JSON.stringify(state));
+  localStorage.setItem("leaveState", JSON.stringify(state));
 }
 
-function openModal(hours) {
-  selectedHours = hours;
-  document.getElementById("modal").style.display = "flex";
-}
-
-function confirmAdd() {
-  const date = document.getElementById("dateInput").value;
-  if (!date) return alert("날짜를 선택해 주세요");
-
-  state.records.push({ date, hours: selectedHours });
-  document.getElementById("modal").style.display = "none";
-  document.getElementById("dateInput").value = "";
+function removeRecord(index) {
+  state.records.splice(index, 1);
   save();
   render();
 }
 
-function removeRecord(i) {
-  state.records.splice(i, 1);
-  save();
-  render();
+function editDate(index) {
+  const input = document.createElement("input");
+  input.type = "date";
+  input.value = state.records[index].date;
+  input.onchange = () => {
+    state.records[index].date = input.value;
+    save();
+    render();
+  };
+  input.click();
 }
 
 function render() {
-  const used = state.records.reduce((s,r)=>s+r.hours,0);
-  document.getElementById("remain").innerText = TOTAL - used;
-  document.getElementById("mandatory").innerText = Math.max(0, MANDATORY - used);
-  document.getElementById("cashable").innerText = Math.max(0, CASHABLE - Math.max(0, used - MANDATORY));
+  const totalUsed = state.records.reduce((s, r) => s + r.hours, 0);
+
+  document.getElementById("totalUsed").textContent =
+    `총 사용: ${totalUsed}시간`;
+
+  const requiredUsed = Math.min(totalUsed, REQUIRED_TOTAL);
+  const cashUsed = Math.max(0, totalUsed - REQUIRED_TOTAL);
+
+  document.getElementById("requiredBar").style.width =
+    `${(requiredUsed / REQUIRED_TOTAL) * 100}%`;
+
+  document.getElementById("cashBar").style.width =
+    `${(cashUsed / CASH_TOTAL) * 100}%`;
 
   const ul = document.getElementById("records");
   ul.innerHTML = "";
-  state.records.forEach((r,i)=>{
-    const li = document.createElement("li");
-    li.innerHTML = `${r.date} · ${r.hours}h <span class="danger" onclick="removeRecord(${i})">삭제</span>`;
-    ul.appendChild(li);
-  });
+
+  state.records
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .forEach((r, i) => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <span onclick="editDate(${i})">${r.date} · ${r.hours}h</span>
+        <span class="delete" onclick="removeRecord(${i})">삭제</span>
+      `;
+      ul.appendChild(li);
+    });
 }
 
 render();
