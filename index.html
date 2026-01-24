@@ -13,10 +13,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-.app {
-  max-width: 420px;
-  margin: auto;
-}
+.app { max-width: 420px; margin: auto; }
 
 .card {
   background: #fff;
@@ -26,24 +23,9 @@ body {
   box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
-h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
-}
+h2 { margin: 0 0 12px; font-size: 18px; }
 
-.total {
-  font-size: 15px;
-  margin-bottom: 18px;
-}
-
-.section {
-  margin-bottom: 20px;
-}
-
-.label {
-  font-size: 14px;
-  margin-bottom: 6px;
-}
+.total { margin-bottom: 18px; }
 
 .progress {
   height: 18px;
@@ -52,13 +34,9 @@ h2 {
   overflow: hidden;
 }
 
-.bar {
-  height: 100%;
-  transition: width 0.3s ease;
-}
-
-.bar.required { background: #007aff; }
-.bar.cash { background: #34c759; }
+.bar { height: 100%; transition: width .3s; }
+.required { background:#007aff; }
+.cash { background:#34c759; }
 
 .buttons button {
   width: 100%;
@@ -71,33 +49,45 @@ h2 {
   color: #fff;
 }
 
-.buttons button:disabled {
-  background: #c7c7cc;
+.buttons button:disabled { background:#c7c7cc; }
+
+select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
 }
 
-ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.record {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid #eee;
+  padding: 10px 0;
+  font-size: 14px;
 }
 
-li {
+.record-top {
   display: flex;
   justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid #eee;
-  font-size: 14px;
+  align-items: center;
 }
 
-.month {
-  margin-top: 12px;
-  font-weight: 600;
-  font-size: 14px;
+.record-actions {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
 }
 
-.delete {
-  color: #ff3b30;
+.record-actions button {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  background: #efeff4;
 }
+
+.delete { color:#ff3b30; }
 </style>
 </head>
 
@@ -108,15 +98,11 @@ li {
   <h2>연차 사용 현황</h2>
   <div class="total" id="totalUsed"></div>
 
-  <div class="section">
-    <div class="label" id="requiredLabel"></div>
-    <div class="progress"><div class="bar required" id="requiredBar"></div></div>
-  </div>
+  <div>필수 소진 남음: <span id="requiredRemain"></span></div>
+  <div class="progress"><div class="bar required" id="requiredBar"></div></div>
 
-  <div class="section">
-    <div class="label" id="cashLabel"></div>
-    <div class="progress"><div class="bar cash" id="cashBar"></div></div>
-  </div>
+  <div style="margin-top:12px;">정산 가능 남음: <span id="cashRemain"></span></div>
+  <div class="progress"><div class="bar cash" id="cashBar"></div></div>
 </div>
 
 <div class="card buttons">
@@ -128,13 +114,11 @@ li {
 
 <div class="card">
   <h2>사용 기록</h2>
-  <ul id="records"></ul>
+  <select id="monthFilter" onchange="render()"></select>
+  <div id="records"></div>
 </div>
 
 </div>
-
-<!-- iOS 대응용 hidden date input -->
-<input type="date" id="datePicker" style="position:absolute;opacity:0;pointer-events:none;">
 
 <script>
 const REQUIRED_TOTAL = 86;
@@ -142,42 +126,21 @@ const CASH_TOTAL = 42;
 const TOTAL_LIMIT = 128;
 
 let state = JSON.parse(localStorage.getItem("leaveState")) || { records: [] };
-let editingIndex = null;
-
-const datePicker = document.getElementById("datePicker");
-datePicker.onchange = () => {
-  if (editingIndex !== null) {
-    state.records[editingIndex].date = datePicker.value;
-    save(); render();
-    editingIndex = null;
-  }
-};
 
 function today() {
   return new Date().toISOString().split("T")[0];
 }
 
 function totalUsed() {
-  return state.records.reduce((s, r) => s + r.hours, 0);
+  return state.records.reduce((s,r)=>s+r.hours,0);
 }
 
 function addLeave(hours) {
-  if (totalUsed() + hours > TOTAL_LIMIT) {
+  if (totalUsed()+hours > TOTAL_LIMIT) {
     alert("모든 연차(128시간)를 이미 소진했습니다.");
     return;
   }
   state.records.push({ date: today(), hours });
-  save(); render();
-}
-
-function editDate(index) {
-  editingIndex = index;
-  datePicker.value = state.records[index].date;
-  datePicker.click();
-}
-
-function removeRecord(index) {
-  state.records.splice(index, 1);
   save(); render();
 }
 
@@ -189,45 +152,48 @@ function render() {
   const used = totalUsed();
   document.getElementById("totalUsed").textContent = `총 사용: ${used}시간`;
 
-  const requiredRemain = Math.max(0, REQUIRED_TOTAL - Math.min(used, REQUIRED_TOTAL));
+  const reqRemain = Math.max(0, REQUIRED_TOTAL - Math.min(used, REQUIRED_TOTAL));
   const cashRemain = Math.max(0, CASH_TOTAL - Math.max(0, used - REQUIRED_TOTAL));
 
-  document.getElementById("requiredLabel").textContent = `필수 소진 남음: ${requiredRemain}시간`;
-  document.getElementById("cashLabel").textContent = `정산 가능 남음: ${cashRemain}시간`;
+  document.getElementById("requiredRemain").textContent = reqRemain;
+  document.getElementById("cashRemain").textContent = cashRemain;
 
-  document.getElementById("requiredBar").style.width = `${(requiredRemain / REQUIRED_TOTAL) * 100}%`;
-  document.getElementById("cashBar").style.width = `${(cashRemain / CASH_TOTAL) * 100}%`;
+  document.getElementById("requiredBar").style.width = `${reqRemain/REQUIRED_TOTAL*100}%`;
+  document.getElementById("cashBar").style.width = `${cashRemain/CASH_TOTAL*100}%`;
 
   document.querySelectorAll(".buttons button")
-    .forEach(btn => btn.disabled = used >= TOTAL_LIMIT);
+    .forEach(b=>b.disabled = used>=TOTAL_LIMIT);
 
-  const ul = document.getElementById("records");
-  ul.innerHTML = "";
+  // 월 필터
+  const months = [...new Set(state.records.map(r=>r.date.slice(0,7)))].sort();
+  const filter = document.getElementById("monthFilter");
+  if (!filter.options.length) {
+    filter.innerHTML = `<option value="">전체</option>` +
+      months.map(m=>`<option value="${m}">${m}</option>`).join("");
+  }
 
-  const grouped = {};
-  state.records.forEach((r, i) => {
-    const month = r.date.slice(0,7);
-    if (!grouped[month]) grouped[month] = [];
-    grouped[month].push({ ...r, index: i });
-  });
+  const selected = filter.value;
+  const list = document.getElementById("records");
+  list.innerHTML = "";
 
-  Object.keys(grouped).sort().reverse().forEach(month => {
-    const m = document.createElement("div");
-    m.className = "month";
-    m.textContent = month;
-    ul.appendChild(m);
-
-    grouped[month]
-      .sort((a,b) => b.date.localeCompare(a.date))
-      .forEach(r => {
-        const li = document.createElement("li");
-        li.innerHTML = `
-          <span onclick="editDate(${r.index})">${r.date} · ${r.hours}h</span>
-          <span class="delete" onclick="removeRecord(${r.index})">삭제</span>
-        `;
-        ul.appendChild(li);
-      });
-  });
+  state.records
+    .map((r,i)=>({...r,i}))
+    .filter(r=>!selected || r.date.startsWith(selected))
+    .sort((a,b)=>b.date.localeCompare(a.date))
+    .forEach(r=>{
+      const div = document.createElement("div");
+      div.className="record";
+      div.innerHTML = `
+        <div class="record-top">
+          <span>${r.date} · ${r.hours}h</span>
+        </div>
+        <div class="record-actions">
+          <input type="date" value="${r.date}" onchange="state.records[${r.i}].date=this.value;save();render();">
+          <button class="delete" onclick="state.records.splice(${r.i},1);save();render();">삭제</button>
+        </div>
+      `;
+      list.appendChild(div);
+    });
 }
 
 render();
