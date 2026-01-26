@@ -33,7 +33,6 @@ h2 {
   font-size: 18px;
 }
 
-/* 설정 버튼 (아이콘만) */
 .settings-btn {
   background: none;
   border: none;
@@ -41,7 +40,6 @@ h2 {
   cursor: pointer;
 }
 
-/* 버튼 영역 */
 .buttons {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -112,7 +110,6 @@ li input[type="date"] {
   font-size: 13px;
 }
 
-/* 모달 */
 .modal {
   position: fixed;
   inset: 0;
@@ -149,10 +146,7 @@ li input[type="date"] {
   gap: 10px;
 }
 
-.save-btn {
-  width: 140px;
-}
-
+.save-btn { width: 140px; }
 .reset-btn {
   width: 90px;
   background: #8e8e93;
@@ -163,7 +157,6 @@ li input[type="date"] {
 <body>
 <div class="app">
 
-  <!-- 연차 사용 -->
   <div class="card">
     <div class="row">
       <h2>연차 사용</h2>
@@ -177,7 +170,6 @@ li input[type="date"] {
     </div>
   </div>
 
-  <!-- 현황 -->
   <div class="card">
     <h2>연차 현황</h2>
 
@@ -189,7 +181,6 @@ li input[type="date"] {
     <div class="bar-wrap"><div class="bar cash" id="cashBar"></div></div>
   </div>
 
-  <!-- 기록 -->
   <div class="card">
     <div class="row">
       <h2>사용 기록</h2>
@@ -202,14 +193,12 @@ li input[type="date"] {
 
 </div>
 
-<!-- 설정 모달 -->
 <div class="modal" id="configModal">
   <div class="modal-content">
     <h3>연차 설정</h3>
     <input id="totalInput" type="number" placeholder="총 연차 시간 (128)">
     <input id="mandatoryInput" type="number" placeholder="필수 소진 시간 (86)">
     <input id="cashInput" type="number" placeholder="정산 가능 시간 (42)">
-
     <div class="modal-actions">
       <button class="reset-btn" onclick="resetAll()">초기화</button>
       <button class="action save-btn" onclick="saveConfig()">저장</button>
@@ -235,6 +224,9 @@ function today() {
 }
 
 function openSettings() {
+  totalInput.value = config.total;
+  mandatoryInput.value = config.mandatory;
+  cashInput.value = config.cash;
   document.getElementById("configModal").style.display = "flex";
 }
 
@@ -245,6 +237,7 @@ function saveConfig() {
     cash: +cashInput.value
   };
   localStorage.setItem("leaveConfig", JSON.stringify(config));
+  localStorage.setItem("leaveConfigured", "true");
   document.getElementById("configModal").style.display = "none";
   render();
 }
@@ -288,8 +281,7 @@ function render() {
   cashBar.style.width = (cashLeft / config.cash * 100) + "%";
 
   if (monthFilter.options.length === 1) {
-    const months = [...new Set(records.map(r => r.date.slice(0,7)))];
-    months.forEach(m => {
+    [...new Set(records.map(r => r.date.slice(0,7)))].forEach(m => {
       const opt = document.createElement("option");
       opt.value = m;
       opt.textContent = m;
@@ -300,7 +292,6 @@ function render() {
   historyEl.innerHTML = "";
   records.forEach((r,i) => {
     if (selectedMonth !== "all" && !r.date.startsWith(selectedMonth)) return;
-
     const li = document.createElement("li");
     li.innerHTML = `
       <input type="date" value="${r.date}"
@@ -316,6 +307,11 @@ function render() {
 }
 
 render();
+
+/* ⭐ 최초 접속 시 설정 팝업 자동 표시 */
+if (!localStorage.getItem("leaveConfigured")) {
+  openSettings();
+}
 </script>
 </body>
 </html>
