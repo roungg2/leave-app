@@ -3,60 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="연차관리">
-<meta name="theme-color" content="#f2f2f7">
-
 <title>연차 관리</title>
 
 <style>
 * { box-sizing: border-box; }
-
 body {
   margin: 0;
   background: #f2f2f7;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
-
 .app {
   max-width: 420px;
   margin: 0 auto;
   padding: 16px;
 }
-
 .card {
   background: #fff;
   border-radius: 16px;
   padding: 16px;
   margin-bottom: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.06);
 }
-
-h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
-}
+h2 { margin: 0 0 12px; font-size: 18px; }
 
 .buttons {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
-
 button {
   padding: 14px 0;
-  font-size: 15px;
   border: none;
   border-radius: 12px;
   background: #007aff;
   color: #fff;
+  font-size: 15px;
   font-weight: 600;
 }
-
-button.gray {
-  background: #8e8e93;
-}
+button.gray { background: #8e8e93; }
 
 .row {
   display: flex;
@@ -64,12 +47,9 @@ button.gray {
   align-items: center;
   margin-bottom: 8px;
 }
-
 select {
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-radius: 10px;
-  border: 1px solid #ddd;
-  font-size: 14px;
 }
 
 .bar-wrap {
@@ -79,86 +59,23 @@ select {
   overflow: hidden;
   margin-bottom: 12px;
 }
-
-.bar {
-  height: 100%;
-  transition: width .3s;
-}
-
+.bar { height: 100%; transition: width .3s; }
 .mandatory { background: #007aff; }
 .cash { background: #34c759; }
 
-ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
+ul { list-style: none; padding: 0; margin: 0; }
 li {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   padding: 8px 0;
   border-bottom: 1px solid #eee;
-  font-size: 14px;
 }
-
 li input[type="date"] {
   border: none;
   font-size: 14px;
 }
-
-.delete {
-  color: #ff3b30;
-  font-size: 13px;
-}
-
-/* 모달 */
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.45);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-}
-
-.modal-content {
-  background: #fff;
-  width: 90%;
-  max-width: 320px;
-  border-radius: 16px;
-  padding: 16px;
-}
-
-.modal-content h3 {
-  margin: 0 0 12px;
-  font-size: 17px;
-}
-
-.modal-content input {
-  width: 100%;
-  padding: 12px;
-  margin-bottom: 10px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-/* 버튼 가로 크기 조절 */
-.save-btn {
-  width: 140px;   /* 약 2배 */
-}
-
-.reset-btn {
-  width: 90px;    /* 약 1.3배 */
-}
+.delete { color: #ff3b30; font-size: 13px; }
 </style>
 </head>
 
@@ -168,7 +85,6 @@ li input[type="date"] {
   <div class="card">
     <div class="row">
       <h2>연차 사용</h2>
-      <button class="gray" onclick="openSettings()">⚙️</button>
     </div>
     <div class="buttons">
       <button onclick="useLeave(8)">연차 8시간</button>
@@ -181,32 +97,18 @@ li input[type="date"] {
   <div class="card">
     <h2>연차 현황</h2>
 
-    <div class="row">
-      <span>총 사용 시간</span>
-      <span id="used">0h</span>
-    </div>
+    <div class="row"><span>총 사용</span><span id="used">0h</span></div>
+    <div class="row"><span>필수 소진</span><span id="mandatoryLeft">0h</span></div>
+    <div class="bar-wrap"><div class="bar mandatory" id="mandatoryBar"></div></div>
 
-    <div class="row">
-      <span>필수 소진</span>
-      <span id="mandatoryLeft">0h</span>
-    </div>
-    <div class="bar-wrap">
-      <div class="bar mandatory" id="mandatoryBar"></div>
-    </div>
-
-    <div class="row">
-      <span>정산 가능</span>
-      <span id="cashLeft">0h</span>
-    </div>
-    <div class="bar-wrap">
-      <div class="bar cash" id="cashBar"></div>
-    </div>
+    <div class="row"><span>정산 가능</span><span id="cashLeft">0h</span></div>
+    <div class="bar-wrap"><div class="bar cash" id="cashBar"></div></div>
   </div>
 
   <div class="card">
     <div class="row">
       <h2>사용 기록</h2>
-      <select id="monthFilter" onchange="render()">
+      <select id="monthFilter" onchange="changeMonth(this.value)">
         <option value="all">전체</option>
       </select>
     </div>
@@ -215,24 +117,10 @@ li input[type="date"] {
 
 </div>
 
-<!-- 설정 모달 -->
-<div class="modal" id="configModal">
-  <div class="modal-content">
-    <h3>연차 설정</h3>
-    <input id="totalInput" type="number" placeholder="총 연차 시간 (예: 128)">
-    <input id="mandatoryInput" type="number" placeholder="필수 소진 시간 (예: 86)">
-    <input id="cashInput" type="number" placeholder="정산 가능 시간 (예: 42)">
-
-    <div class="modal-actions">
-      <button class="gray reset-btn" onclick="resetAll()">초기화</button>
-      <button class="save-btn" onclick="saveConfig()">저장</button>
-    </div>
-  </div>
-</div>
-
 <script>
-let config = JSON.parse(localStorage.getItem("leaveConfig"));
+let config = { total:128, mandatory:86, cash:42 };
 let records = JSON.parse(localStorage.getItem("leaveRecords") || "[]");
+let selectedMonth = "all";
 
 const usedEl = document.getElementById("used");
 const mandatoryLeftEl = document.getElementById("mandatoryLeft");
@@ -244,27 +132,6 @@ const monthFilter = document.getElementById("monthFilter");
 
 function today() {
   return new Date().toISOString().slice(0,10);
-}
-
-function openSettings() {
-  document.getElementById("configModal").style.display = "flex";
-}
-
-function saveConfig() {
-  config = {
-    total: +totalInput.value,
-    mandatory: +mandatoryInput.value,
-    cash: +cashInput.value
-  };
-  localStorage.setItem("leaveConfig", JSON.stringify(config));
-  document.getElementById("configModal").style.display = "none";
-  render();
-}
-
-function resetAll() {
-  if (!confirm("모든 기록과 설정을 초기화할까요?")) return;
-  localStorage.clear();
-  location.reload();
 }
 
 function usedHours() {
@@ -281,6 +148,11 @@ function useLeave(h) {
   render();
 }
 
+function changeMonth(value) {
+  selectedMonth = value;
+  render();
+}
+
 function render() {
   const used = usedHours();
   usedEl.textContent = used + "h";
@@ -294,31 +166,35 @@ function render() {
   mandatoryBar.style.width = (mandatoryLeft / config.mandatory * 100) + "%";
   cashBar.style.width = (cashLeft / config.cash * 100) + "%";
 
-  // 월 필터 옵션 생성
-  const months = [...new Set(records.map(r => r.date.slice(0,7)))];
-  monthFilter.innerHTML = `<option value="all">전체</option>`;
-  months.forEach(m => {
-    monthFilter.innerHTML += `<option value="${m}">${m}</option>`;
-  });
+  // 월 옵션 최초 1회 생성
+  if (monthFilter.options.length === 1) {
+    const months = [...new Set(records.map(r => r.date.slice(0,7)))];
+    months.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      monthFilter.appendChild(opt);
+    });
+  }
 
   historyEl.innerHTML = "";
   records.forEach((r,i) => {
-    if (monthFilter.value !== "all" && !r.date.startsWith(monthFilter.value)) return;
+    if (selectedMonth !== "all" && !r.date.startsWith(selectedMonth)) return;
 
     const li = document.createElement("li");
     li.innerHTML = `
       <input type="date" value="${r.date}"
         onchange="records[${i}].date=this.value;localStorage.setItem('leaveRecords',JSON.stringify(records))">
       <span>${r.hours}h</span>
-      <span class="delete"
-        onclick="records.splice(${i},1);localStorage.setItem('leaveRecords',JSON.stringify(records));render()">삭제</span>
+      <span class="delete" onclick="records.splice(${i},1);localStorage.setItem('leaveRecords',JSON.stringify(records));render()">삭제</span>
     `;
     historyEl.appendChild(li);
   });
+
+  monthFilter.value = selectedMonth;
 }
 
-if (!config) openSettings();
-else render();
+render();
 </script>
 </body>
 </html>
