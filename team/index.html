@@ -58,9 +58,15 @@ button.gray {
   background: #8e8e93;
 }
 
+button.big {
+  padding: 16px 0;
+  font-size: 16px;
+}
+
 .row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 14px;
   margin-bottom: 6px;
 }
@@ -68,7 +74,7 @@ button.gray {
 .bar-wrap {
   background: #e5e5ea;
   border-radius: 12px;
-  height: 20px;
+  height: 22px;
   overflow: hidden;
   margin-bottom: 12px;
 }
@@ -106,14 +112,6 @@ li input[type="date"] {
   font-size: 13px;
 }
 
-select {
-  width: 100%;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-  margin-bottom: 12px;
-}
-
 /* 모달 */
 .modal {
   position: fixed;
@@ -144,6 +142,13 @@ select {
   margin-bottom: 10px;
   border-radius: 10px;
   border: 1px solid #ddd;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
 }
 </style>
 </head>
@@ -191,7 +196,6 @@ select {
 
   <div class="card">
     <h2>사용 기록</h2>
-    <select id="monthFilter" onchange="renderHistory()"></select>
     <ul id="history"></ul>
   </div>
 
@@ -204,14 +208,24 @@ select {
     <input id="totalInput" type="number" placeholder="총 연차 시간 (예: 128)">
     <input id="mandatoryInput" type="number" placeholder="필수 소진 시간 (예: 86)">
     <input id="cashInput" type="number" placeholder="정산 가능 시간 (예: 42)">
-    <button onclick="saveConfig()">저장</button>
-    <button class="gray" onclick="resetAll()">초기화</button>
+
+    <div class="modal-actions">
+      <button class="gray" onclick="resetAll()">초기화</button>
+      <button class="big" onclick="saveConfig()">저장</button>
+    </div>
   </div>
 </div>
 
 <script>
 let config = JSON.parse(localStorage.getItem("leaveConfig"));
 let records = JSON.parse(localStorage.getItem("leaveRecords") || "[]");
+
+const usedEl = document.getElementById("used");
+const mandatoryLeftEl = document.getElementById("mandatoryLeft");
+const cashLeftEl = document.getElementById("cashLeft");
+const mandatoryBar = document.getElementById("mandatoryBar");
+const cashBar = document.getElementById("cashBar");
+const historyEl = document.getElementById("history");
 
 function today() {
   return new Date().toISOString().slice(0,10);
@@ -252,47 +266,6 @@ function useLeave(h) {
   render();
 }
 
-function changeDate(i, value) {
-  records[i].date = value;
-  localStorage.setItem("leaveRecords", JSON.stringify(records));
-  renderMonths();
-}
-
-function deleteRecord(i) {
-  records.splice(i,1);
-  localStorage.setItem("leaveRecords", JSON.stringify(records));
-  render();
-}
-
-function renderMonths() {
-  const select = document.getElementById("monthFilter");
-  const months = [...new Set(records.map(r => r.date.slice(0,7)))];
-  select.innerHTML = '<option value="all">전체 보기</option>';
-  months.forEach(m => {
-    const o = document.createElement("option");
-    o.value = m;
-    o.textContent = m;
-    select.appendChild(o);
-  });
-}
-
-function renderHistory() {
-  const ul = document.getElementById("history");
-  const filter = monthFilter.value;
-  ul.innerHTML = "";
-
-  records.forEach((r,i) => {
-    if (filter !== "all" && !r.date.startsWith(filter)) return;
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <input type="date" value="${r.date}" onchange="changeDate(${i}, this.value)">
-      <span>${r.hours}h</span>
-      <span class="delete" onclick="deleteRecord(${i})">삭제</span>
-    `;
-    ul.appendChild(li);
-  });
-}
-
 function render() {
   const used = usedHours();
   usedEl.textContent = used + "h";
@@ -306,8 +279,16 @@ function render() {
   mandatoryBar.style.width = (mandatoryLeft / config.mandatory * 100) + "%";
   cashBar.style.width = (cashLeft / config.cash * 100) + "%";
 
-  renderMonths();
-  renderHistory();
+  historyEl.innerHTML = "";
+  records.forEach((r,i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <input type="date" value="${r.date}" onchange="records[${i}].date=this.value;localStorage.setItem('leaveRecords',JSON.stringify(records))">
+      <span>${r.hours}h</span>
+      <span class="delete" onclick="records.splice(${i},1);localStorage.setItem('leaveRecords',JSON.stringify(records));render()">삭제</span>
+    `;
+    historyEl.appendChild(li);
+  });
 }
 
 if (!config) openSettings();
