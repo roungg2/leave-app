@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="연차관리">
 <meta name="theme-color" content="#f2f2f7">
 
@@ -53,11 +52,10 @@ button {
   background: #007aff;
   color: #fff;
   font-weight: 600;
-  touch-action: manipulation;
 }
 
-button:disabled {
-  background: #c7c7cc;
+button.gray {
+  background: #8e8e93;
 }
 
 .row {
@@ -83,7 +81,40 @@ button:disabled {
 .mandatory { background: #007aff; }
 .cash { background: #34c759; }
 
-/* 설정 모달 */
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+li input[type="date"] {
+  border: none;
+  font-size: 14px;
+}
+
+.delete {
+  color: #ff3b30;
+  font-size: 13px;
+}
+
+select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  margin-bottom: 12px;
+}
+
+/* 모달 */
 .modal {
   position: fixed;
   inset: 0;
@@ -107,17 +138,10 @@ button:disabled {
   font-size: 17px;
 }
 
-.modal-content p {
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 10px;
-}
-
-input {
+.modal-content input {
   width: 100%;
   padding: 12px;
   margin-bottom: 10px;
-  font-size: 15px;
   border-radius: 10px;
   border: 1px solid #ddd;
 }
@@ -128,7 +152,10 @@ input {
 <div class="app">
 
   <div class="card">
-    <h2>연차 사용</h2>
+    <div class="row">
+      <h2>연차 사용</h2>
+      <button class="gray" onclick="openSettings()">⚙️</button>
+    </div>
     <div class="buttons">
       <button onclick="useLeave(8)">연차 8시간</button>
       <button onclick="useLeave(7)">연차 7시간</button>
@@ -138,7 +165,7 @@ input {
   </div>
 
   <div class="card">
-    <h2>연차 사용 현황</h2>
+    <h2>연차 현황</h2>
 
     <div class="row">
       <span>총 사용 시간</span>
@@ -162,17 +189,23 @@ input {
     </div>
   </div>
 
+  <div class="card">
+    <h2>사용 기록</h2>
+    <select id="monthFilter" onchange="renderHistory()"></select>
+    <ul id="history"></ul>
+  </div>
+
 </div>
 
-<!-- 설정 팝업 -->
+<!-- 설정 모달 -->
 <div class="modal" id="configModal">
   <div class="modal-content">
     <h3>연차 설정</h3>
-    <p>회사 기준 연차 시간을 입력하세요</p>
     <input id="totalInput" type="number" placeholder="총 연차 시간 (예: 128)">
     <input id="mandatoryInput" type="number" placeholder="필수 소진 시간 (예: 86)">
     <input id="cashInput" type="number" placeholder="정산 가능 시간 (예: 42)">
     <button onclick="saveConfig()">저장</button>
+    <button class="gray" onclick="resetAll()">초기화</button>
   </div>
 </div>
 
@@ -180,12 +213,12 @@ input {
 let config = JSON.parse(localStorage.getItem("leaveConfig"));
 let records = JSON.parse(localStorage.getItem("leaveRecords") || "[]");
 
-function init() {
-  if (!config) {
-    document.getElementById("configModal").style.display = "flex";
-  } else {
-    render();
-  }
+function today() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function openSettings() {
+  document.getElementById("configModal").style.display = "flex";
 }
 
 function saveConfig() {
@@ -199,8 +232,14 @@ function saveConfig() {
   render();
 }
 
+function resetAll() {
+  if (!confirm("모든 기록과 설정을 초기화할까요?")) return;
+  localStorage.clear();
+  location.reload();
+}
+
 function usedHours() {
-  return records.reduce((a,b)=>a+b,0);
+  return records.reduce((a,b)=>a+b.hours,0);
 }
 
 function useLeave(h) {
@@ -208,32 +247,71 @@ function useLeave(h) {
     alert("모든 연차가 소진되었습니다.");
     return;
   }
-  records.push(h);
+  records.push({ date: today(), hours: h });
   localStorage.setItem("leaveRecords", JSON.stringify(records));
   render();
 }
 
+function changeDate(i, value) {
+  records[i].date = value;
+  localStorage.setItem("leaveRecords", JSON.stringify(records));
+  renderMonths();
+}
+
+function deleteRecord(i) {
+  records.splice(i,1);
+  localStorage.setItem("leaveRecords", JSON.stringify(records));
+  render();
+}
+
+function renderMonths() {
+  const select = document.getElementById("monthFilter");
+  const months = [...new Set(records.map(r => r.date.slice(0,7)))];
+  select.innerHTML = '<option value="all">전체 보기</option>';
+  months.forEach(m => {
+    const o = document.createElement("option");
+    o.value = m;
+    o.textContent = m;
+    select.appendChild(o);
+  });
+}
+
+function renderHistory() {
+  const ul = document.getElementById("history");
+  const filter = monthFilter.value;
+  ul.innerHTML = "";
+
+  records.forEach((r,i) => {
+    if (filter !== "all" && !r.date.startsWith(filter)) return;
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <input type="date" value="${r.date}" onchange="changeDate(${i}, this.value)">
+      <span>${r.hours}h</span>
+      <span class="delete" onclick="deleteRecord(${i})">삭제</span>
+    `;
+    ul.appendChild(li);
+  });
+}
+
 function render() {
   const used = usedHours();
-  document.getElementById("used").textContent = used + "h";
+  usedEl.textContent = used + "h";
 
   const mandatoryLeft = Math.max(0, config.mandatory - used);
   const cashLeft = Math.max(0, config.cash - Math.max(0, used - config.mandatory));
 
-  mandatoryLeftEl = document.getElementById("mandatoryLeft");
-  cashLeftEl = document.getElementById("cashLeft");
-
   mandatoryLeftEl.textContent = mandatoryLeft + "h";
   cashLeftEl.textContent = cashLeft + "h";
 
-  document.getElementById("mandatoryBar").style.width =
-    (mandatoryLeft / config.mandatory * 100) + "%";
+  mandatoryBar.style.width = (mandatoryLeft / config.mandatory * 100) + "%";
+  cashBar.style.width = (cashLeft / config.cash * 100) + "%";
 
-  document.getElementById("cashBar").style.width =
-    (cashLeft / config.cash * 100) + "%";
+  renderMonths();
+  renderHistory();
 }
 
-init();
+if (!config) openSettings();
+else render();
 </script>
 </body>
 </html>
