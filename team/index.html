@@ -7,30 +7,49 @@
 
 <style>
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
   background: #f2f2f7;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
+
 .app {
   max-width: 420px;
   margin: 0 auto;
   padding: 16px;
 }
+
 .card {
   background: #fff;
   border-radius: 16px;
   padding: 16px;
   margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.06);
 }
-h2 { margin: 0 0 12px; font-size: 18px; }
 
+h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+/* 설정 버튼 (아이콘만) */
+.settings-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* 버튼 영역 */
 .buttons {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
+  margin-top: 12px;
 }
-button {
+
+button.action {
   padding: 14px 0;
   border: none;
   border-radius: 12px;
@@ -39,7 +58,6 @@ button {
   font-size: 15px;
   font-weight: 600;
 }
-button.gray { background: #8e8e93; }
 
 .row {
   display: flex;
@@ -47,9 +65,11 @@ button.gray { background: #8e8e93; }
   align-items: center;
   margin-bottom: 8px;
 }
+
 select {
   padding: 6px 10px;
   border-radius: 10px;
+  border: 1px solid #ddd;
 }
 
 .bar-wrap {
@@ -59,11 +79,21 @@ select {
   overflow: hidden;
   margin-bottom: 12px;
 }
-.bar { height: 100%; transition: width .3s; }
+
+.bar {
+  height: 100%;
+  transition: width .3s;
+}
+
 .mandatory { background: #007aff; }
 .cash { background: #34c759; }
 
-ul { list-style: none; padding: 0; margin: 0; }
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
 li {
   display: flex;
   justify-content: space-between;
@@ -71,29 +101,83 @@ li {
   padding: 8px 0;
   border-bottom: 1px solid #eee;
 }
+
 li input[type="date"] {
   border: none;
   font-size: 14px;
 }
-.delete { color: #ff3b30; font-size: 13px; }
+
+.delete {
+  color: #ff3b30;
+  font-size: 13px;
+}
+
+/* 모달 */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal-content {
+  background: #fff;
+  width: 90%;
+  max-width: 320px;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.modal-content h3 {
+  margin: 0 0 12px;
+}
+
+.modal-content input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.save-btn {
+  width: 140px;
+}
+
+.reset-btn {
+  width: 90px;
+  background: #8e8e93;
+}
 </style>
 </head>
 
 <body>
 <div class="app">
 
+  <!-- 연차 사용 -->
   <div class="card">
     <div class="row">
       <h2>연차 사용</h2>
+      <button class="settings-btn" onclick="openSettings()">⚙️</button>
     </div>
     <div class="buttons">
-      <button onclick="useLeave(8)">연차 8시간</button>
-      <button onclick="useLeave(7)">연차 7시간</button>
-      <button onclick="useLeave(4)">반차 4시간</button>
-      <button onclick="useLeave(2)">1/4차 2시간</button>
+      <button class="action" onclick="useLeave(8)">연차 8시간</button>
+      <button class="action" onclick="useLeave(7)">연차 7시간</button>
+      <button class="action" onclick="useLeave(4)">반차 4시간</button>
+      <button class="action" onclick="useLeave(2)">1/4차 2시간</button>
     </div>
   </div>
 
+  <!-- 현황 -->
   <div class="card">
     <h2>연차 현황</h2>
 
@@ -105,6 +189,7 @@ li input[type="date"] {
     <div class="bar-wrap"><div class="bar cash" id="cashBar"></div></div>
   </div>
 
+  <!-- 기록 -->
   <div class="card">
     <div class="row">
       <h2>사용 기록</h2>
@@ -117,8 +202,23 @@ li input[type="date"] {
 
 </div>
 
+<!-- 설정 모달 -->
+<div class="modal" id="configModal">
+  <div class="modal-content">
+    <h3>연차 설정</h3>
+    <input id="totalInput" type="number" placeholder="총 연차 시간 (128)">
+    <input id="mandatoryInput" type="number" placeholder="필수 소진 시간 (86)">
+    <input id="cashInput" type="number" placeholder="정산 가능 시간 (42)">
+
+    <div class="modal-actions">
+      <button class="reset-btn" onclick="resetAll()">초기화</button>
+      <button class="action save-btn" onclick="saveConfig()">저장</button>
+    </div>
+  </div>
+</div>
+
 <script>
-let config = { total:128, mandatory:86, cash:42 };
+let config = JSON.parse(localStorage.getItem("leaveConfig")) || { total:128, mandatory:86, cash:42 };
 let records = JSON.parse(localStorage.getItem("leaveRecords") || "[]");
 let selectedMonth = "all";
 
@@ -132,6 +232,27 @@ const monthFilter = document.getElementById("monthFilter");
 
 function today() {
   return new Date().toISOString().slice(0,10);
+}
+
+function openSettings() {
+  document.getElementById("configModal").style.display = "flex";
+}
+
+function saveConfig() {
+  config = {
+    total: +totalInput.value,
+    mandatory: +mandatoryInput.value,
+    cash: +cashInput.value
+  };
+  localStorage.setItem("leaveConfig", JSON.stringify(config));
+  document.getElementById("configModal").style.display = "none";
+  render();
+}
+
+function resetAll() {
+  if (!confirm("모든 기록과 설정을 초기화할까요?")) return;
+  localStorage.clear();
+  location.reload();
 }
 
 function usedHours() {
@@ -166,7 +287,6 @@ function render() {
   mandatoryBar.style.width = (mandatoryLeft / config.mandatory * 100) + "%";
   cashBar.style.width = (cashLeft / config.cash * 100) + "%";
 
-  // 월 옵션 최초 1회 생성
   if (monthFilter.options.length === 1) {
     const months = [...new Set(records.map(r => r.date.slice(0,7)))];
     months.forEach(m => {
@@ -186,7 +306,8 @@ function render() {
       <input type="date" value="${r.date}"
         onchange="records[${i}].date=this.value;localStorage.setItem('leaveRecords',JSON.stringify(records))">
       <span>${r.hours}h</span>
-      <span class="delete" onclick="records.splice(${i},1);localStorage.setItem('leaveRecords',JSON.stringify(records));render()">삭제</span>
+      <span class="delete"
+        onclick="records.splice(${i},1);localStorage.setItem('leaveRecords',JSON.stringify(records));render()">삭제</span>
     `;
     historyEl.appendChild(li);
   });
