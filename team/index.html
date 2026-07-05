@@ -160,6 +160,77 @@ li input[type="date"] {
 
 .save-btn { width: 160px; }
 .reset-btn { width: 110px; }
+
+/* ⭐ v1.6 추가 스타일 */
+.small-note {
+  font-size: 12px;
+  color: #8e8e93;
+  text-align: right;
+  margin: -4px 0 10px;
+  min-height: 14px;
+}
+
+.collapsible-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-icon {
+  display: inline-block;
+  transition: transform .2s;
+  font-size: 16px;
+  color: #8e8e93;
+  margin-left: 4px;
+}
+
+.toggle-icon.open {
+  transform: rotate(180deg);
+}
+
+.scheduled-summary {
+  font-size: 13px;
+  color: #8e8e93;
+}
+
+.add-row {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.add-row input[type="date"] {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  background: #fff;
+  appearance: auto;
+  -webkit-appearance: auto;
+}
+
+.add-row select {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+}
+
+.add-row button {
+  padding: 10px 14px;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.collapsible-content {
+  display: none;
+}
+
+.scheduled-empty {
+  font-size: 13px;
+  color: #8e8e93;
+  padding: 8px 0;
+}
 </style>
 </head>
 
@@ -182,7 +253,10 @@ li input[type="date"] {
   <div class="card">
     <h2>연차 현황</h2>
 
-    <div class="row"><span>총 사용</span><span id="used">0h</span></div>
+    <div class="row"><span>사용한 연차</span><span id="used">0h</span></div>
+
+    <div class="row"><span>남은 연차</span><span id="remaining">0h</span></div>
+    <div class="small-note" id="remainingNote"></div>
 
     <div class="row"><span>필수 소진</span><span id="mandatoryLeft">0h</span></div>
     <div class="bar-wrap"><div class="bar mandatory" id="mandatoryBar"></div></div>
@@ -192,20 +266,47 @@ li input[type="date"] {
   </div>
 
   <div class="card">
-    <div class="row">
-      <h2>사용 기록</h2>
-      <select id="monthFilter" onchange="changeMonth(this.value)">
+    <div class="row collapsible-header" onclick="toggleHistory()">
+      <h2>사용 기록<span class="toggle-icon" id="historyToggleIcon">▾</span></h2>
+      <span class="scheduled-summary" id="historySummary"></span>
+      <select id="monthFilter" onclick="event.stopPropagation()" onchange="changeMonth(this.value)">
         <option value="all">전체</option>
       </select>
     </div>
-    <ul id="history"></ul>
+    <div class="collapsible-content" id="historyContent">
+      <ul id="history"></ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row collapsible-header" onclick="toggleScheduled()">
+      <h2>예정 연차<span class="toggle-icon" id="scheduledToggleIcon">▾</span></h2>
+      <span class="scheduled-summary" id="scheduledSummary"></span>
+    </div>
+    <div class="collapsible-content" id="scheduledContent">
+      <div class="add-row">
+        <input type="date" id="scheduledDateInput">
+        <select id="scheduledHourInput">
+          <option value="8">8시간</option>
+          <option value="7">7시간</option>
+          <option value="4">4시간</option>
+          <option value="2">2시간</option>
+        </select>
+        <button class="action" onclick="addScheduled()">추가</button>
+      </div>
+      <ul id="scheduledList"></ul>
+      <div class="scheduled-empty" id="scheduledEmpty">등록된 예정 연차가 없습니다.</div>
+    </div>
   </div>
 
 </div>
 
 <div class="modal" id="configModal">
   <div class="modal-content">
-    <h3>연차 설정</h3>
+    <div class="row" style="margin-bottom:14px;">
+      <h3 style="margin:0;">연차 설정</h3>
+      <button class="settings-btn" onclick="closeSettings()">✕</button>
+    </div>
 
     <input id="totalInput" type="number" placeholder="총 연차 시간 (예: 128)">
     <input id="mandatoryInput" type="number" placeholder="필수 소진 시간 (예: 86)">
@@ -221,15 +322,28 @@ li input[type="date"] {
 <script>
 let config = JSON.parse(localStorage.getItem("leaveConfig"));
 let records = JSON.parse(localStorage.getItem("leaveRecords") || "[]");
+let scheduled = JSON.parse(localStorage.getItem("leaveScheduled") || "[]");
 let selectedMonth = "all";
+let scheduledOpen = false;
+let historyOpen = true;
 
 const usedEl = document.getElementById("used");
+const remainingEl = document.getElementById("remaining");
+const remainingNoteEl = document.getElementById("remainingNote");
 const mandatoryLeftEl = document.getElementById("mandatoryLeft");
 const cashLeftEl = document.getElementById("cashLeft");
 const mandatoryBar = document.getElementById("mandatoryBar");
 const cashBar = document.getElementById("cashBar");
 const historyEl = document.getElementById("history");
 const monthFilter = document.getElementById("monthFilter");
+const historyContent = document.getElementById("historyContent");
+const historyToggleIcon = document.getElementById("historyToggleIcon");
+const historySummaryEl = document.getElementById("historySummary");
+const scheduledContent = document.getElementById("scheduledContent");
+const scheduledToggleIcon = document.getElementById("scheduledToggleIcon");
+const scheduledSummaryEl = document.getElementById("scheduledSummary");
+const scheduledListEl = document.getElementById("scheduledList");
+const scheduledEmptyEl = document.getElementById("scheduledEmpty");
 
 function today() {
   return new Date().toISOString().slice(0,10);
@@ -237,6 +351,10 @@ function today() {
 
 function openSettings() {
   document.getElementById("configModal").style.display = "flex";
+}
+
+function closeSettings() {
+  document.getElementById("configModal").style.display = "none";
 }
 
 function saveConfig() {
@@ -281,6 +399,82 @@ function changeMonth(v) {
   render();
 }
 
+/* ⭐ v1.7 추가: 사용 기록 접기/펼치기 (접혔을 때 요약, 펼쳤을 때 월별 필터 표시) */
+function toggleHistory() {
+  historyOpen = !historyOpen;
+  historyContent.style.display = historyOpen ? "block" : "none";
+  historyToggleIcon.classList.toggle("open", historyOpen);
+  historySummaryEl.style.display = historyOpen ? "none" : "inline";
+  monthFilter.style.display = historyOpen ? "inline-block" : "none";
+}
+
+/* ⭐ v1.6 추가: 예정 연차 관련 함수 */
+function scheduledHours() {
+  return scheduled.reduce((a,b)=>a+b.hours,0);
+}
+
+function toggleScheduled() {
+  scheduledOpen = !scheduledOpen;
+  scheduledContent.style.display = scheduledOpen ? "block" : "none";
+  scheduledToggleIcon.classList.toggle("open", scheduledOpen);
+}
+
+function addScheduled() {
+  const d = document.getElementById("scheduledDateInput").value;
+  const h = +document.getElementById("scheduledHourInput").value;
+
+  if (!d) {
+    alert("예정 날짜를 선택해주세요.");
+    return;
+  }
+
+  scheduled.push({ date: d, hours: h });
+  scheduled.sort((a,b)=> a.date.localeCompare(b.date));
+  localStorage.setItem("leaveScheduled", JSON.stringify(scheduled));
+  document.getElementById("scheduledDateInput").value = "";
+  renderScheduled();
+}
+
+function deleteScheduled(i) {
+  scheduled.splice(i,1);
+  localStorage.setItem("leaveScheduled", JSON.stringify(scheduled));
+  renderScheduled();
+}
+
+function renderScheduled() {
+  scheduledListEl.innerHTML = "";
+
+  scheduled.forEach((s, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <span>${s.date}</span>
+      <span>${s.hours}h</span>
+      <span class="delete" onclick="deleteScheduled(${i})">삭제</span>
+    `;
+    scheduledListEl.appendChild(li);
+  });
+
+  scheduledEmptyEl.style.display = scheduled.length ? "none" : "block";
+  scheduledSummaryEl.textContent = scheduled.length ? `총 ${scheduledHours()}h` : "";
+
+  updateRemaining();
+}
+
+function updateRemaining() {
+  if (!config) return;
+
+  const used = usedHours();
+  const remaining = Math.max(0, config.total - used);
+  remainingEl.textContent = remaining + "h";
+
+  if (scheduled.length) {
+    const withScheduled = Math.max(0, remaining - scheduledHours());
+    remainingNoteEl.textContent = `예정 반영 시 ${withScheduled}h`;
+  } else {
+    remainingNoteEl.textContent = "";
+  }
+}
+
 function render() {
   if (!config) return;
 
@@ -307,10 +501,14 @@ function render() {
 
   historyEl.innerHTML = "";
 
+  let filteredSum = 0;
+
   [...records].reverse().forEach((r, idx) => {
     const i = records.length - 1 - idx;
 
     if (selectedMonth !== "all" && !r.date.startsWith(selectedMonth)) return;
+
+    filteredSum += r.hours;
 
     const li = document.createElement("li");
     li.innerHTML = `
@@ -323,10 +521,20 @@ function render() {
     historyEl.appendChild(li);
   });
 
+  historySummaryEl.textContent = `총 ${filteredSum}h`;
+
   monthFilter.value = selectedMonth;
+
+  updateRemaining();
 }
 
+historyContent.style.display = historyOpen ? "block" : "none";
+historyToggleIcon.classList.toggle("open", historyOpen);
+historySummaryEl.style.display = historyOpen ? "none" : "inline";
+monthFilter.style.display = historyOpen ? "inline-block" : "none";
+
 render();
+renderScheduled();
 
 if (!localStorage.getItem("leaveConfigured")) {
   openSettings();
