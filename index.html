@@ -269,14 +269,11 @@ li input[type="date"] {
     <div class="row collapsible-header" onclick="toggleHistory()">
       <h2>사용 기록<span class="toggle-icon" id="historyToggleIcon">▾</span></h2>
       <span class="scheduled-summary" id="historySummary"></span>
+      <select id="monthFilter" onclick="event.stopPropagation()" onchange="changeMonth(this.value)">
+        <option value="all">전체</option>
+      </select>
     </div>
     <div class="collapsible-content" id="historyContent">
-      <div class="row">
-        <span></span>
-        <select id="monthFilter" onchange="changeMonth(this.value)">
-          <option value="all">전체</option>
-        </select>
-      </div>
       <ul id="history"></ul>
     </div>
   </div>
@@ -402,11 +399,13 @@ function changeMonth(v) {
   render();
 }
 
-/* ⭐ v1.7 추가: 사용 기록 접기/펼치기 */
+/* ⭐ v1.7 추가: 사용 기록 접기/펼치기 (접혔을 때 요약, 펼쳤을 때 월별 필터 표시) */
 function toggleHistory() {
   historyOpen = !historyOpen;
   historyContent.style.display = historyOpen ? "block" : "none";
   historyToggleIcon.classList.toggle("open", historyOpen);
+  historySummaryEl.style.display = historyOpen ? "none" : "inline";
+  monthFilter.style.display = historyOpen ? "inline-block" : "none";
 }
 
 /* ⭐ v1.6 추가: 예정 연차 관련 함수 */
@@ -531,6 +530,8 @@ function render() {
 
 historyContent.style.display = historyOpen ? "block" : "none";
 historyToggleIcon.classList.toggle("open", historyOpen);
+historySummaryEl.style.display = historyOpen ? "none" : "inline";
+monthFilter.style.display = historyOpen ? "inline-block" : "none";
 
 render();
 renderScheduled();
