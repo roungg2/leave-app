@@ -161,6 +161,16 @@ li input[type="date"] {
 .save-btn { width: 160px; }
 .reset-btn { width: 110px; }
 
+.modal-content input[type="checkbox"],
+.modal-content input[type="radio"] {
+  width: auto;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
 /* ⭐ v1.6 추가 스타일 */
 .small-note {
   font-size: 12px;
@@ -230,6 +240,52 @@ li input[type="date"] {
   font-size: 13px;
   color: #8e8e93;
   padding: 8px 0;
+}
+
+/* ⭐ v2.1 추가: 다중 예정 연차 팝업 한 줄 정렬 스타일 */
+.due-modal-content {
+  max-width: 360px;
+}
+
+#dueList li {
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+#dueList input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+#dueList li span {
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.leftover-row {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #333;
+  flex-wrap: nowrap;
+}
+
+.leftover-row label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.leftover-row input[type="radio"] {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin: 0;
 }
 </style>
 </head>
@@ -319,6 +375,41 @@ li input[type="date"] {
   </div>
 </div>
 
+<div class="modal" id="dueModal">
+  <div class="modal-content due-modal-content">
+    <h3 style="margin:0 0 12px;">예정 연차 확인</h3>
+
+    <div id="dueSingle">
+      <p id="duePopupText" style="font-size:14px;color:#333;margin:0 0 16px;line-height:1.5;"></p>
+      <div class="modal-actions">
+        <button class="action gray reset-btn" onclick="declineDue()">아니오</button>
+        <button class="action save-btn" onclick="confirmDue()">예</button>
+      </div>
+    </div>
+
+    <div id="dueMulti" style="display:none;">
+      <p style="font-size:14px;color:#333;margin:0 0 10px;line-height:1.5;">날짜가 된 예정 연차입니다. 확정할 항목을 선택하세요.</p>
+      <ul id="dueList" style="margin-bottom:14px;"></ul>
+
+      <div style="font-size:13px;color:#8e8e93;margin-bottom:6px;">선택하지 않은 항목은</div>
+      <div class="leftover-row">
+        <label>
+          <input type="radio" name="leftoverAction" value="keep" checked> 예정 연차로 유지
+        </label>
+        <label>
+          <input type="radio" name="leftoverAction" value="delete"> 삭제
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="action gray reset-btn" onclick="declineDue()">닫기</button>
+        <button class="action save-btn" onclick="confirmDueMulti()">확정하기</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <script>
 let config = JSON.parse(localStorage.getItem("leaveConfig"));
 let records = JSON.parse(localStorage.getItem("leaveRecords") || "[]");
@@ -344,6 +435,105 @@ const scheduledToggleIcon = document.getElementById("scheduledToggleIcon");
 const scheduledSummaryEl = document.getElementById("scheduledSummary");
 const scheduledListEl = document.getElementById("scheduledList");
 const scheduledEmptyEl = document.getElementById("scheduledEmpty");
+
+/* ⭐ v2.0 추가: 예정 연차 1건이면 예/아니오 팝업, 여러 건이면 선택형 팝업 */
+let dueItems = [];
+
+function checkDueScheduled() {
+  const t = today();
+  dueItems = scheduled.filter(s => s.date <= t);
+  if (!dueItems.length) return;
+
+  if (dueItems.length === 1) {
+    showDueSinglePopup();
+  } else {
+    showDueMultiPopup();
+  }
+}
+
+function showDueSinglePopup() {
+  document.getElementById("dueSingle").style.display = "block";
+  document.getElementById("dueMulti").style.display = "none";
+
+  const s = dueItems[0];
+  document.getElementById("duePopupText").textContent =
+    `예정된 연차 ${s.date} (${s.hours}h)의 날짜가 되었습니다. 사용 기록으로 확정할까요?`;
+
+  document.getElementById("dueModal").style.display = "flex";
+}
+
+function showDueMultiPopup() {
+  document.getElementById("dueSingle").style.display = "none";
+  document.getElementById("dueMulti").style.display = "block";
+
+  const listEl = document.getElementById("dueList");
+  listEl.innerHTML = "";
+
+  dueItems.forEach((s, i) => {
+    const li = document.createElement("li");
+    li.style.justifyContent = "flex-start";
+    li.style.gap = "8px";
+    li.innerHTML = `
+      <input type="checkbox" class="due-check" data-idx="${i}" checked>
+      <span>${s.date} (${s.hours}h)</span>
+    `;
+    listEl.appendChild(li);
+  });
+
+  const keepRadio = document.querySelector('input[name="leftoverAction"][value="keep"]');
+  if (keepRadio) keepRadio.checked = true;
+
+  document.getElementById("dueModal").style.display = "flex";
+}
+
+function confirmDue() {
+  scheduled = scheduled.filter(s => dueItems.indexOf(s) === -1);
+  dueItems.forEach(s => records.push({ date: s.date, hours: s.hours }));
+
+  localStorage.setItem("leaveRecords", JSON.stringify(records));
+  localStorage.setItem("leaveScheduled", JSON.stringify(scheduled));
+
+  document.getElementById("dueModal").style.display = "none";
+  dueItems = [];
+
+  render();
+  renderScheduled();
+}
+
+function confirmDueMulti() {
+  const checks = document.querySelectorAll(".due-check");
+  const selected = [];
+  const unselected = [];
+
+  checks.forEach(chk => {
+    const idx = +chk.dataset.idx;
+    if (chk.checked) selected.push(dueItems[idx]);
+    else unselected.push(dueItems[idx]);
+  });
+
+  const deleteLeftover = document.querySelector('input[name="leftoverAction"]:checked').value === "delete";
+
+  selected.forEach(s => records.push({ date: s.date, hours: s.hours }));
+
+  if (deleteLeftover) {
+    scheduled = scheduled.filter(s => selected.indexOf(s) === -1 && unselected.indexOf(s) === -1);
+  } else {
+    scheduled = scheduled.filter(s => selected.indexOf(s) === -1);
+  }
+
+  localStorage.setItem("leaveRecords", JSON.stringify(records));
+  localStorage.setItem("leaveScheduled", JSON.stringify(scheduled));
+
+  document.getElementById("dueModal").style.display = "none";
+  dueItems = [];
+
+  render();
+  renderScheduled();
+}
+
+function declineDue() {
+  document.getElementById("dueModal").style.display = "none";
+}
 
 function today() {
   return new Date().toISOString().slice(0,10);
@@ -535,6 +725,7 @@ monthFilter.style.display = historyOpen ? "inline-block" : "none";
 
 render();
 renderScheduled();
+checkDueScheduled();
 
 if (!localStorage.getItem("leaveConfigured")) {
   openSettings();
